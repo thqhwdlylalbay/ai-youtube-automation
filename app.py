@@ -7,133 +7,146 @@ import os
 from PIL import Image
 from gradio_client import Client, handle_file
 from deep_translator import GoogleTranslator
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_audioclips
 
 # إعدادات الصفحة
-st.set_page_config(page_title="استوديو الذكاء الاصطناعي العربي", page_icon="🎬", layout="centered")
+st.set_page_config(page_title="استوديو السينما بالذكاء الاصطناعي", page_icon="🎬", layout="centered")
 
-st.title("🎬 استوديو الذكاء الاصطناعي المتكامل")
-st.write("تطبيق عربي بالكامل: اكتب وصفك بالعربي لتوليد صور حقيقية، أصوات مصرية واقعية، وتحريك المشاهد لملفات فيديو.")
+st.title("🎬 استوديو السينما والمشاهد المتكامل")
+st.write("اصنع مشهداً كاملاً: حرك الصورة، ولّد حوار الشخصيات بأصوات مصرية، وادمج الصوت مع الفيديو تلقائياً!")
 
-# التبويبات الرئيسية
-tab1, tab2, tab3 = st.tabs(["🖼️ توليد الصور والمشاهد", "🗣️ الأصوات المصرية الواقعية", "🎬 تحريك الصور إلى فيديو"])
+# التبويبات
+tab1, tab2, tab3 = st.tabs(["🖼️ توليد الصور", "🗣️ الأصوات المصرية", "🎬 صانع المشاهد الناطقة (فيديو + صوت)"])
 
-# ------------------- Tab 1: توليد الصور والمشاهد بالعربي -------------------
+# ------------------- Tab 1: توليد الصور -------------------
 with tab1:
-    st.header("توليد صور ومشاهد واقعية جداً")
-    
+    st.header("توليد صور ومشاهد واقعية")
     hf_token = st.text_input("مفتاح Hugging Face المجاني (HF Token):", type="password")
+    prompt_ar = st.text_area("وصف المشهد بالعربي:", value="صورة سينمائية واقعية جداً لعائلة وروبوت يجلسون على طاولة الطعام بدقة 8k")
     
-    prompt_ar = st.text_area(
-        "اكتب وصف المشهد أو الصورة باللغة العربية (مثال: صورة سينمائية واقعية جداً لقلعة قديمة في الصحراء وقت غروب الشمس دقة عالية):",
-        value="صورة سينمائية فائقة الواقعية لشارع مصري قديم في القاهرة وقت الغروب بدقة 8k"
-    )
-    
-    if st.button("توليد المشهد الآن", key="gen_img_btn"):
+    if st.button("توليد الصورة", key="gen_img"):
         if not hf_token:
-            st.warning("يرجى أدخل مفتاح Hugging Face الخاص بك أولاً.")
-        elif not prompt_ar.strip():
-            st.warning("يرجى كتابة وصف الصورة بالعربي.")
+            st.warning("أدخل مفتاح Hugging Face أولاً.")
         else:
-            with st.spinner("جاري ترجمة الوصف وتوليد الصورة بواقعية عالية..."):
+            with st.spinner("جاري الرسم..."):
                 try:
-                    # ترجمة الوصف تلقائياً للإنجليزية لضمان أعلى جودة من الذكاء الاصطناعي
-                    translated_prompt = GoogleTranslator(source='auto', target='en').translate(prompt_ar)
-                    
-                    API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
-                    headers = {"Authorization": f"Bearer {hf_token}"}
-                    response = requests.post(API_URL, headers=headers, json={"inputs": translated_prompt})
-                    
-                    if response.status_code == 200:
-                        image_bytes = response.content
-                        st.image(image_bytes, caption=f"النتيجة لـ: {prompt_ar}", use_column_width=True)
+                    translated = GoogleTranslator(source='auto', target='en').translate(prompt_ar)
+                    res = requests.post(
+                        "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
+                        headers={"Authorization": f"Bearer {hf_token}"},
+                        json={"inputs": translated}
+                    )
+                    if res.status_code == 200:
+                        st.image(res.content, caption="الصورة الناتجة", use_column_width=True)
                     else:
-                        st.error(f"حدث خطأ في السيرفر ({response.status_code}). تأكد من صحة المفتاح.")
+                        st.error("تأكد من صحة المفتاح أو انتظر ثوانٍ.")
                 except Exception as e:
-                    st.error(f"حدث خطأ أثناء المعالجة: {e}")
+                    st.error(f"خطأ: {e}")
 
-# ------------------- Tab 2: الأصوات المصرية الواقعية -------------------
+# ------------------- Tab 2: الأصوات المنفصلة -------------------
 with tab2:
-    st.header("تحويل النص إلى صوت مصري حقيقي")
+    st.header("توليد صوت مصري منفصل")
+    text = st.text_area("النص المراد تحويله لصوت:", value="أهلاً بكم في بيتنا الجديد!")
+    voice_choice = st.selectbox("اختر الصوت:", ["أم / امرأة مصرية", "أب / رجل مصري", "طفلة صغيرة", "طفل صغير", "روبوت مصري"])
     
-    text_input = st.text_area("اكتب النص المراد تحويله إلى صوت:", value="أهلاً بكم في استوديو الذكاء الاصطناعي الخاص بنا! نتمنى أن تنال هذه الخدمة إعجابكم.")
-    
-    voice_option = st.selectbox(
-        "اختر شخصية الصوت المصري:",
-        [
-            "أم / امرأة مصرية (سلمى)",
-            "أب / رجل مصري (شاكر)",
-            "طفلة صغيرة مصرية",
-            "طفل صغير مصري"
-        ]
-    )
-    
-    # ضبط خيارات الصوت
-    if voice_option == "أم / امرأة مصرية (سلمى)":
-        voice_id = "ar-EG-SalmaNeural"
-        pitch, rate = "+0Hz", "+0%"
-    elif voice_option == "أب / رجل مصري (شاكر)":
-        voice_id = "ar-EG-ShakirNeural"
-        pitch, rate = "+0Hz", "+0%"
-    elif voice_option == "طفلة صغيرة مصرية":
-        voice_id = "ar-EG-SalmaNeural"
-        pitch, rate = "+22Hz", "+12%"
-    elif voice_option == "طفل صغير مصري":
-        voice_id = "ar-EG-ShakirNeural"
-        pitch, rate = "+28Hz", "+12%"
-
-    async def generate_audio(text, voice, pitch, rate, output_file):
-        communicate = edge_tts.Communicate(text, voice, pitch=pitch, rate=rate)
-        await communicate.save(output_file)
-
-    if st.button("إنشاء الصوت الآن", key="gen_audio_btn"):
-        if not text_input.strip():
-            st.warning("يرجى كتابة النص أولاً.")
-        else:
-            with st.spinner("جاري توليد الصوت المصري..."):
-                try:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_audio:
-                        output_path = tmp_audio.name
-
-                    asyncio.run(generate_audio(text_input, voice_id, pitch, rate, output_path))
-                    st.audio(output_path, format="audio/mp3")
-                    st.success("تم توليد الصوت بنجاح!")
-                except Exception as e:
-                    st.error(f"حدث خطأ أثناء إنشاء الصوت: {e}")
-
-# ------------------- Tab 3: تحريك الصور والمشاهد -------------------
-with tab3:
-    st.header("تحريك الصور وتحويلها إلى فيديو")
-    st.info("قم برفع صورة واحدة فقط من جهازك لتحريكها وتحويلها لمشهد فيديو حركي.")
-    
-    # دعم صيغ أكثر من بينها webp
-    uploaded_file = st.file_uploader("اختر صورة من جهازك:", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=False, key="img_anim_uploader")
-
-    if uploaded_file is not None:
-        try:
-            image_preview = Image.open(uploaded_file)
-            st.image(image_preview, caption="الصورة المرفوعة", width=350)
+    if st.button("إنشاء الصوت", key="single_voice"):
+        with st.spinner("جاري إنشاء الصوت..."):
+            voice_id = "ar-EG-SalmaNeural" if "امرأة" in voice_choice or "طفلة" in voice_choice else "ar-EG-ShakirNeural"
+            pitch = "+25Hz" if "طفل" in voice_choice or "روبوت" in voice_choice else "+0Hz"
+            rate = "+15%" if "روبوت" in voice_choice else "+0%"
             
-            if st.button("🎬 تحريك المشهد الآن", key="anim_btn"):
-                with st.spinner("جاري معالجة الصورة وتحريكها... قد يستغرق ذلك دقيقة:"):
-                    try:
-                        # تحويل صيغة الصورة وحجمها تلقائياً لتناسب نموذج التحريك دون أخطاء
-                        rgb_image = image_preview.convert('RGB')
-                        rgb_image.thumbnail((1024, 1024)) # تقليل الحجم المناسب لمنع تعليق السيرفر
-                        
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-                            rgb_image.save(tmp_img.name, format="PNG")
-                            tmp_img_path = tmp_img.name
+            async def make_speech():
+                comm = edge_tts.Communicate(text, voice_id, pitch=pitch, rate=rate)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+                    await comm.save(tmp.name)
+                    return tmp.name
+            
+            aud_path = asyncio.run(make_speech())
+            st.audio(aud_path)
 
-                        client = Client("stabilityai/stable-video-diffusion")
-                        result = client.predict(
-                            handle_file(tmp_img_path),
-                            0,
-                            False,
-                            api_name="/video"
-                        )
-                        st.video(result)
-                        st.success("تم تحريك المشهد بنجاح!")
-                    except Exception as e:
-                        st.error(f"سيرفر تحريك الصور المجاني عليه ضغط حالياً. يرجى المحاولة مرة أخرى بعد ثوانٍ. التفاصيل: {e}")
-        except Exception as e:
-            st.error("الصورة المرفوعة غير صالحة أو تالفة، يرجى اختيار صورة أخرى.")
+# ------------------- Tab 3: المونتاج التلقائي للمشهد الكامل -------------------
+with tab3:
+    st.header("🎬 إنشاء مشهد سينمائي متكامل (حركة + أصوات)")
+    st.info("ارفع صورة المشهد واكتب حوار الشخصيات، وسيقوم التطبيق بتحريك الصورة ودمج الحوار معها فوراً!")
+    
+    uploaded_img = st.file_uploader("ارفع صورة المشهد (روبوت، عائلة، إلخ):", type=["png", "jpg", "jpeg", "webp"])
+    
+    st.subheader("📝 سيناريو وحوار المشهد:")
+    robot_text = st.text_input("كلام الروبوت (اختياري):", value="جاهز لخدمتكم يا فندم!")
+    mom_text = st.text_input("كلام الأم (اختياري):", value="تسلم إيدك يا روبوت، الأكل ممتاز!")
+    kid_text = st.text_input("كلام الطفل/الطفلة (اختياري):", value="أنا بحب الروبوت ده أوي!")
+    
+    if uploaded_img and st.button("🚀 ابدأ إنتاج المشهد الكامل الآن"):
+        with st.spinner("1/3: جاري توليد وتنسيق أصوات الشخصيات..."):
+            try:
+                audio_clips = []
+                
+                # دالة مساعدة لتوليد المقاطع
+                async def gen_clip(txt, v_id, p="+0Hz", r="+0%"):
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+                        comm = edge_tts.Communicate(txt, v_id, pitch=p, rate=r)
+                        await comm.save(f.name)
+                        return f.name
+
+                if robot_text.strip():
+                    f1 = asyncio.run(gen_clip(robot_text, "ar-EG-ShakirNeural", pitch="+30Hz", r="+10%"))
+                    audio_clips.append(AudioFileClip(f1))
+                if mom_text.strip():
+                    f2 = asyncio.run(gen_clip(mom_text, "ar-EG-SalmaNeural"))
+                    audio_clips.append(AudioFileClip(f2))
+                if kid_text.strip():
+                    f3 = asyncio.run(gen_clip(kid_text, "ar-EG-SalmaNeural", pitch="+25Hz"))
+                    audio_clips.append(AudioFileClip(f3))
+
+                if audio_clips:
+                    final_audio = concatenate_audioclips(audio_clips)
+                    temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                    final_audio.write_audiofile(temp_audio_path, logger=None)
+                else:
+                    temp_audio_path = None
+
+                st.toast("تم إنشاء الحوار بنجاح!", icon="✅")
+            except Exception as e:
+                st.error(f"خطأ في معالجة الأصوات: {e}")
+                temp_audio_path = None
+
+        with st.spinner("2/3: جاري تحريك الصورة سينمائياً... (قد يستغرق دقيقة)"):
+            try:
+                img = Image.open(uploaded_img).convert('RGB')
+                img.thumbnail((1024, 1024))
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_i:
+                    img.save(tmp_i.name, format="PNG")
+                    img_path = tmp_i.name
+
+                client = Client("stabilityai/stable-video-diffusion")
+                result = client.predict(handle_file(img_path), 0, False, api_name="/video")
+                
+                vid_path = result[0] if isinstance(result, (list, tuple)) else result
+            except Exception as e:
+                st.error("السيرفر المجاني للتحريك مشغول حالياً. يمكنك إعادة المحاولة بعد ثوانٍ.")
+                vid_path = None
+
+        if vid_path:
+            with st.spinner("3/3: جاري دمج حركة المشهد مع الحوار الصوتي..."):
+                try:
+                    video_clip = VideoFileClip(vid_path)
+                    
+                    if temp_audio_path:
+                        audio_clip = AudioFileClip(temp_audio_path)
+                        # ضبط طول الفيديو ليناسب طول الصوت
+                        if audio_clip.duration > video_clip.duration:
+                            video_clip = video_clip.loop(duration=audio_clip.duration)
+                        else:
+                            video_clip = video_clip.subclip(0, audio_clip.duration)
+                            
+                        final_video = video_clip.set_audio(audio_clip)
+                    else:
+                        final_video = video_clip
+
+                    output_final = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
+                    final_video.write_videofile(output_final, codec="libx264", audio_codec="aac", logger=None)
+                    
+                    st.success("🎉 تم إنتاج المشهد السينمائي الناطق بنجاح!")
+                    st.video(output_final)
+                except Exception as e:
+                    st.error(f"حدث خطأ أثناء الدمج النهائي: {e}")
