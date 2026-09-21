@@ -103,29 +103,37 @@ with tab2:
 # ------------------- Tab 3: تحريك الصور والمشاهد -------------------
 with tab3:
     st.header("تحريك الصور وتحويلها إلى فيديو")
-    st.info("قم برفع صورة واحدة فقط (PNG أو JPG) لتحريكها وتحويلها لمشهد فيديو حركي.")
+    st.info("قم برفع صورة واحدة فقط من جهازك لتحريكها وتحويلها لمشهد فيديو حركي.")
     
-    uploaded_file = st.file_uploader("اختر صورة من جهازك:", type=["png", "jpg", "jpeg"], accept_multiple_files=False, key="img_anim_uploader")
+    # دعم صيغ أكثر من بينها webp
+    uploaded_file = st.file_uploader("اختر صورة من جهازك:", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=False, key="img_anim_uploader")
 
     if uploaded_file is not None:
-        image_preview = Image.open(uploaded_file)
-        st.image(image_preview, caption="الصورة المرفوعة", width=350)
-        
-        if st.button("🎬 تحريك المشهد الآن", key="anim_btn"):
-            with st.spinner("جاري تحريك الصورة وتحويلها لفيديو... قد يستغرق ذلك دقيقة:"):
-                try:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-                        tmp_img.write(uploaded_file.getvalue())
-                        tmp_img_path = tmp_img.name
+        try:
+            image_preview = Image.open(uploaded_file)
+            st.image(image_preview, caption="الصورة المرفوعة", width=350)
+            
+            if st.button("🎬 تحريك المشهد الآن", key="anim_btn"):
+                with st.spinner("جاري معالجة الصورة وتحريكها... قد يستغرق ذلك دقيقة:"):
+                    try:
+                        # تحويل صيغة الصورة وحجمها تلقائياً لتناسب نموذج التحريك دون أخطاء
+                        rgb_image = image_preview.convert('RGB')
+                        rgb_image.thumbnail((1024, 1024)) # تقليل الحجم المناسب لمنع تعليق السيرفر
+                        
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+                            rgb_image.save(tmp_img.name, format="PNG")
+                            tmp_img_path = tmp_img.name
 
-                    client = Client("stabilityai/stable-video-diffusion")
-                    result = client.predict(
-                        handle_file(tmp_img_path),
-                        0,
-                        False,
-                        api_name="/video"
-                    )
-                    st.video(result)
-                    st.success("تم تحريك المشهد بنجاح!")
-                except Exception as e:
-                    st.error(f"السيرفر المجاني مشغول حالياً، يرجى إعادة المحاولة بعد قليل. التفاصيل: {e}")
+                        client = Client("stabilityai/stable-video-diffusion")
+                        result = client.predict(
+                            handle_file(tmp_img_path),
+                            0,
+                            False,
+                            api_name="/video"
+                        )
+                        st.video(result)
+                        st.success("تم تحريك المشهد بنجاح!")
+                    except Exception as e:
+                        st.error(f"سيرفر تحريك الصور المجاني عليه ضغط حالياً. يرجى المحاولة مرة أخرى بعد ثوانٍ. التفاصيل: {e}")
+        except Exception as e:
+            st.error("الصورة المرفوعة غير صالحة أو تالفة، يرجى اختيار صورة أخرى.")
