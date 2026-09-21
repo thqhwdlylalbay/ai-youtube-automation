@@ -1,1 +1,5 @@
-
+streamlit
+huggingface_hub
+edge-tts
+gradio_client
+pillow
