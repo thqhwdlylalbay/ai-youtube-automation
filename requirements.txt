@@ -4,3 +4,4 @@ pillow
 edge-tts
 gradio_client
 deep-translator
+moviepy
