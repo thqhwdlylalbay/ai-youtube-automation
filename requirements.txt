@@ -1,5 +1,6 @@
 streamlit
-huggingface_hub
+requests
+pillow
 edge-tts
 gradio_client
-pillow
+deep-translator
