@@ -1,110 +1,130 @@
 import streamlit as st
+import requests
 import asyncio
 import edge_tts
-from huggingface_hub import InferenceClient
-from PIL import Image
 import tempfile
 import os
+from PIL import Image
 from gradio_client import Client, handle_file
 
-# إعدادات الصفحة والاتجاه من اليمين للشمال (RTL)
-st.set_page_config(page_title="استوديو الذكاء الاصطناعي", page_icon="🎨", layout="wide")
+# إعدادات الصفحة الرئيسية
+st.set_page_config(page_title="استوديو الذكاء الاصطناعي الشامل", page_icon="🎨", layout="centered")
 
-st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-        html, body, [class*="css"] {
-            font-family: 'Cairo', sans-serif;
-            direction: rtl;
-            text-align: right;
-        }
-        .stButton>button {
-            width: 100%;
-            background-color: #2E7D32;
-            color: white;
-            font-weight: bold;
-            border-radius: 8px;
-        }
-    </style>
-""", unsafe_allow_html=True)
+st.title("🎨 استوديو الذكاء الاصطناعي المصري")
+st.write("تطبيق متكامل: توليد صور، تحويل النص إلى أصوات مصرية (أب، أم، أطفال)، وتحريك الصور إلى فيديو.")
 
-st.title("🎨 استوديو الذكاء الاصطناعي المجاني")
-st.write("تطبيق متعدد الخدمات: توليد صور، تحويل النصوص لأصوات عربية حقيقية، وتحريك الصور.")
-
-tab1, tab2, tab3 = st.tabs(["🖼️ توليد الصور", "🗣️ أصوات عربية واقعية", "🎬 تحريك الصور"])
+# إنشاء التبويبات
+tab1, tab2, tab3 = st.tabs(["🖼️ توليد الصور (Flux)", "🗣️ أصوات مصرية واقعية", "🎬 تحريك الصور"])
 
 # ------------------- Tab 1: توليد الصور -------------------
 with tab1:
-    st.header("توليد الصور (Flux.1 Schnell)")
-    hf_token = st.text_input("أدخل مفتاح Hugging Face المجاني (HF Token):", type="password")
-    prompt = st.text_area("وصف الصورة (يفضل باللغة الإنجليزية لأفضل نتيجة):", "A highly detailed cinematic photo of an ancient castle in a desert at sunset, 8k resolution")
-
-    if st.button("توليد الصورة الآن"):
+    st.header("توليد الصور عالية الدقة (Flux.1 Schnell)")
+    
+    hf_token = st.text_input("أدخل مفتاح Hugging Face المجاني (HF Token):", type="password", help="احصل عليه مجاناً من موقع Hugging Face -> Settings -> Access Tokens")
+    prompt = st.text_area("وصف الصورة (يفضل باللغة الإنجليزية للحصول على أفضل نتيجة):", value="A highly detailed cinematic photo of an ancient castle in a desert at sunset, 8k resolution")
+    
+    if st.button("توليد الصورة الآن", key="gen_img_btn"):
         if not hf_token:
-            st.error("يرجى إدخال مفتاح Hugging Face أولاً (يمكنك الحصول عليه مجاناً من huggingface.co).")
+            st.warning("يرجى إدخال مفتاح Hugging Face أولاً.")
+        elif not prompt:
+            st.warning("يرجى كتابة وصف للتقاط الصورة.")
         else:
-            with st.spinner("جاري إنشاء الصورة..."):
+            with st.spinner("جاري رسم الصورة، يرجى الانتظار..."):
                 try:
-                    client = InferenceClient("black-forest-labs/FLUX.1-schnell", token=hf_token)
-                    image = client.text_to_image(prompt)
-                    st.image(image, caption="الصورة الناتجة", use_container_width=True)
+                    API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
+                    headers = {"Authorization": f"Bearer {hf_token}"}
+                    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+                    
+                    if response.status_code == 200:
+                        image_bytes = response.content
+                        st.image(image_bytes, caption="الصورة الناتجة", use_column_width=True)
+                    else:
+                        st.error(f"حدث خطأ في السيرفر: {response.status_code}. تأكد من صحة المفتاح.")
                 except Exception as e:
-                    st.error(f"حدث خطأ أثناء التوليد: {e}")
+                    st.error(f"خطأ أثناء الاتصال: {e}")
 
-# ------------------- Tab 2: الأصوات العربية -------------------
+# ------------------- Tab 2: الأصوات المصرية -------------------
 with tab2:
-    st.header("توليد أصوات عربية طبيعية (Microsoft Neural)")
-    text_input = st.text_area("أدخل النص العربي المراد تحويله إلى صوت:", "مرحباً بك! هذا صوت عربي واقعي جداً يتم إنشاؤه عبر الذكاء الاصطناعي مجاناً.")
+    st.header("تحويل النص إلى صوت مصري بواقعية عالية")
+    
+    text_input = st.text_area("اكتب النص المراد تحويله لصوت مصري:", value="أهلاً بكم في تطبيقنا الجديد! نتمنى أن تنال هذه الخدمة إعجابكم.")
+    
+    # اختيار شخصية الصوت المصري
+    voice_option = st.selectbox(
+        "اختر الصوت المصري المطلوب:",
+        [
+            "أم / امرأة مصرية (سلمى)",
+            "أب / رجل مصري (شاكر)",
+            "طفلة صغيرة مصرية",
+            "طفل صغير مصري"
+        ]
+    )
+    
+    # تحديد إعدادات الصوت بناءً على الخيار
+    if voice_option == "أم / امرأة مصرية (سلمى)":
+        voice_id = "ar-EG-SalmaNeural"
+        pitch = "+0Hz"
+        rate = "+0%"
+    elif voice_option == "أب / رجل مصري (شاكر)":
+        voice_id = "ar-EG-ShakirNeural"
+        pitch = "+0Hz"
+        rate = "+0%"
+    elif voice_option == "طفلة صغيرة مصرية":
+        voice_id = "ar-EG-SalmaNeural"
+        pitch = "+22Hz"  # رفع النبرة لتصبح كصوت طفلة
+        rate = "+12%"   # تسريع بسيط يلائم أسلوب الأطفال
+    elif voice_option == "طفل صغير مصري":
+        voice_id = "ar-EG-ShakirNeural"
+        pitch = "+28Hz"  # رفع النبرة لتصبح كصوت طفل
+        rate = "+12%"
 
-    voices = {
-        "سلمى - مصري (أنثى)": "ar-EG-SalmaNeural",
-        "شاكر - مصري (ذكر)": "ar-EG-ShakirNeural",
-        "حامد - سعودي (ذكر)": "ar-SA-HamedNeural",
-        "زارينا - إماراتي (أنثى)": "ar-AE-ZariyahNeural"
-    }
+    async def generate_audio(text, voice, pitch, rate, output_file):
+        communicate = edge_tts.Communicate(text, voice, pitch=pitch, rate=rate)
+        await communicate.save(output_file)
 
-    selected_voice_name = st.selectbox("اختر المعلق الصوتي:", list(voices.keys()))
-    selected_voice = voices[selected_voice_name]
-
-    if st.button("إنشاء الملف الصوتي"):
+    if st.button("إنشاء الصوت الآن", key="gen_audio_btn"):
         if not text_input.strip():
-            st.error("يرجى كتابة نص أولاً.")
+            st.warning("يرجى كتابة نص أولاً.")
         else:
-            with st.spinner("جاري معالجة الصوت..."):
-                async def generate_audio():
-                    communicate = edge_tts.Communicate(text_input, selected_voice)
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
-                        await communicate.save(tmp_file.name)
-                        return tmp_file.name
-
+            with st.spinner("جاري إنشاء الملف الصوتي المصري..."):
                 try:
-                    audio_path = asyncio.run(generate_audio())
-                    st.audio(audio_path, format="audio/mp3")
-                    with open(audio_path, "rb") as f:
-                        st.download_button("تحميل الصوت MP3", data=f, file_name="arabic_speech.mp3", mime="audio/mp3")
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_audio:
+                        output_path = tmp_audio.name
+
+                    asyncio.run(generate_audio(text_input, voice_id, pitch, rate, output_path))
+                    
+                    st.audio(output_path, format="audio/mp3")
+                    st.success("تم توليد الصوت بنجاح!")
                 except Exception as e:
-                    st.error(f"حدث خطأ أثناء توليد الصوت: {e}")
+                    st.error(f"حدث خطأ أثناء إنشاء الصوت: {e}")
 
 # ------------------- Tab 3: تحريك الصور -------------------
 with tab3:
     st.header("تحريك الصور (Image to Video)")
-    uploaded_file = st.file_uploader("اختر صورة من جهازك لتحريكها:", type=["png", "jpg", "jpeg"])
+    st.info("قم برفع صورة واحدة فقط بصيغة PNG أو JPG لتحريكها.")
+    
+    uploaded_file = st.file_uploader("اختر صورة من جهازك:", type=["png", "jpg", "jpeg"], accept_multiple_files=False, key="single_img_uploader")
 
-    if uploaded_file and st.button("تحريك الصورة الآن"):
-        with st.spinner("جاري تحريك الصورة عبر سيرفرات الذكاء الاصطناعي (قد يستغرق دقيقة)..."):
-            try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-                    tmp_img.write(uploaded_file.getvalue())
-                    tmp_img_path = tmp_img.name
+    if uploaded_file is not None:
+        image_preview = Image.open(uploaded_file)
+        st.image(image_preview, caption="الصورة المرفوعة", width=350)
+        
+        if st.button("🎬 ابدأ تحريك الصورة الآن", key="anim_btn"):
+            with st.spinner("جاري تحريك الصورة وتحويلها لفيديو... قد يستغرق ذلك دقيقة:"):
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+                        tmp_img.write(uploaded_file.getvalue())
+                        tmp_img_path = tmp_img.name
 
-                # استخدام API مجاني لتحريك الصور (Stable Video Diffusion)
-                client = Client("stabilityai/stable-video-diffusion")
-                result = client.predict(
-                    handle_file(tmp_img_path),
-                    0,       # Seed
-                    False,   # Randomize seed
-                    api_name="/video"
-                )
-                st.video(result)
-            except Exception as e:
-                st.error(f"السيرفر المجاني مشغول حالياً أو حدث خطأ. التفاصيل: {e}")
+                    # الاتصال بمحرك التحريك
+                    client = Client("stabilityai/stable-video-diffusion")
+                    result = client.predict(
+                        handle_file(tmp_img_path),
+                        0,       # Seed
+                        False,   # Randomize seed
+                        api_name="/video"
+                    )
+                    st.video(result)
+                    st.success("تم تحريك الصورة بنجاح!")
+                except Exception as e:
+                    st.error(f"السيرفر المجاني للتحريك مشغول حالياً، يرجى المحاولة مرة أخرى بعد قليل. التفاصيل: {e}")
